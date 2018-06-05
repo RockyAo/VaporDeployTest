@@ -7,69 +7,99 @@ import FluentPostgreSQL
 
 final class UserTest: XCTestCase {
     
-    func testUserCanBeRetrievedFromAPI() throws {
+    let usersName: String = "Alice"
+    let usersUsername: String = "alicea"
+    let usersURI: String = "/api/users/"
+    var app:Application!
+    var conn: PostgreSQLConnection!
+    
+    override func setUp() {
+        super.setUp()
         
-        // 1
-        let revertEnvironmentArgs = ["vapor", "revert", "--all", "-y"]
-        // 2
-        var revertConfig = Config.default()
-        var revertServices = Services.default()
-        var revertEnv = Environment.testing
-        // 3
-        revertEnv.arguments = revertEnvironmentArgs
-        // 4
-        try App.configure(&revertConfig, &revertEnv, &revertServices)
-        let revertApp = try Application(config: revertConfig,
-                                        environment: revertEnv,
-                                        services: revertServices)
-        try App.boot(revertApp)
-        // 5
-        try revertApp.asyncRun().wait()
+        do {
+            try Application.reset()
+            app = try Application.testable()
+            conn = try app.newConnection(to: .psql).wait()
+        } catch let error {
+            print(" boot test case faild \(error)")
+        }
         
         
-        //1 定义一些期望值
-        let expectedName = "Alice"
-        let expectedUsername = "alice"
+    }
+    
+    override func tearDown() {
+        super.tearDown()
         
-        //2 创建 Application 和 main.Swift里面一样，这里需要使用测试环境
-        var config = Config.default()
-        var services = Services.default()
-        var env = Environment.testing
-        try App.configure(&config, &env, &services)
-        let app = try Application(config: config, environment: env, services: services)
-        try App.boot(app)
-        
-        //3 创建一个数据库的链接
-        let conn = try app.newConnection(to: .psql).wait()
-        
-        //4 创建几个用户用于存入数据库
-        let user = User(name: expectedName, userName: expectedUsername)
-        
-        let savedUser = try user.save(on: conn).wait()
-        _ = try User(name: "Luke", userName: "luke").save(on: conn).wait()
-        
-        //5 创建一个响应类型
-        let responder = try app.make(Responder.self)
-        
-        //6 创建一个HTTPRequest请求
-        let request = HTTPRequest(method: .GET, url: URL(string: "/api/users")!)
-        
-        let wrappedRequest = Request(http: request, using: app)
-        
-        //7 发送请求并获取响应
-        let response = try responder.respond(to: wrappedRequest).wait()
-        
-        //8 解析返回结果
-        let data = response.http.body.data
-        let users = try JSONDecoder().decode([User].self, from: data!)
-        
-        //9 比对期望
-        XCTAssertEqual(users.count, 2)
-        XCTAssertEqual(users[0].name, expectedName)
-        XCTAssertEqual(users[0].userName, expectedUsername)
-        XCTAssertEqual(users[0].id, savedUser.id)
-        
-        // 关闭数据库
         conn.close()
+    }
+    
+    func testUsersCanBEretrievedFromAPI() throws {
+        let user = try User.create(name: usersName, username: usersUsername, on: conn)
+        
+        _ = try User.create(on: conn)
+        
+        let users = try app.getResponse(to: usersURI, decodeTo: [User].self)
+        
+        XCTAssertEqual(users.count, 2)
+        XCTAssertEqual(users[0].name, usersName)
+        XCTAssertEqual(users[0].userName, usersUsername)
+        XCTAssertEqual(users[0].id, user.id)
+    }
+    
+    func testUserCanBeSavedWithAPI() throws {
+        let user = User(name: usersName, userName: usersUsername)
+        
+        let receivedUser = try app.getResponse(to: usersURI,
+                                               method: .POST,
+                                               headers: ["Content-type":"application/json"],
+                                               data: user,
+                                               decodeTo: User.self)
+        
+        XCTAssertEqual(receivedUser.name, usersName)
+        XCTAssertEqual(receivedUser.userName, usersUsername)
+        XCTAssertNotNil(receivedUser.id)
+        
+        let users = try app.getResponse(to: usersURI, decodeTo: [User].self)
+        
+        XCTAssertEqual(users.count, 1)
+        XCTAssertEqual(users[0].name, usersName)
+        XCTAssertEqual(users[0].userName, usersUsername)
+        XCTAssertEqual(users[0].id, receivedUser.id)
+    }
+    
+    func testGettingASingleUserFromTheAPI() throws {
+        
+        let user = try User.create(name: usersName, username: usersUsername, on: conn)
+        
+        let receivedUser = try app.getResponse(to: "\(usersURI)\(user.id!)", decodeTo: User.self)
+        
+        XCTAssertEqual(receivedUser.name, usersName)
+        XCTAssertEqual(receivedUser.userName, usersUsername)
+        XCTAssertEqual(receivedUser.id, user.id)
+    }
+    
+    func testGettingAUsersAcronymsFromTheAPI() {
+        
+        let user = try User.create(on: conn)
+        
+        let acronymShort = "OMG"
+        let acronymLong = "Oh My God"
+        
+        let acronym1 = try Acronym.create(short: acronymShort,
+                                          long: acronymLong,
+                                          user: user,
+                                          on: conn)
+        
+        _ = try Acronym.create(short: "LOL",
+                               long: "Laugh Out Loud",
+                               user: user,
+                               on: conn)
+        
+        let acronyms = try app.getResponse(to: "\(usersURI)\(user.id!)/acronyms", decodeTo: [Acronym].self)
+        
+        XCTAssertEqual(acronyms.count, 2)
+        XCTAssertEqual(acronyms[0].id, acronym1.id)
+        XCTAssertEqual(acronyms[0].short, acronym1.short)
+        XCTAssertEqual(acronyms[0].long, acronym1.long)
     }
 }

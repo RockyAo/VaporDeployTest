@@ -34,6 +34,8 @@ struct CategoriesControlelr: RouteCollection {
         return try req.parameters.next(Category.self)
             .flatMap(to: [Acronym].self, { (category) -> Future<[Acronym]> in
                 return try category.acronyms.query(on: req).all()
+    
             })
     }
 }
+

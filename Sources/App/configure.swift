@@ -22,6 +22,10 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     
     var databases = DatabasesConfig()
     
+    let hostname = Environment.get("DATABASE_HOSTNAME") ?? "localhost"
+    let username = Environment.get("DATABASE_USER") ?? "vapor"
+    let password = Environment.get("DATABASE_PASSWORD") ?? "password"
+    
     let databaseName:String
     let databasePort: Int
     
@@ -34,11 +38,11 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     }
     
     let databaseConfig = PostgreSQLDatabaseConfig(
-        hostname: "localhost",
+        hostname: hostname,
         port: databasePort,
-        username: "vapor",
+        username: username,
         database: databaseName,
-        password: "password")
+        password: password)
     
     let database = PostgreSQLDatabase(config: databaseConfig)
     databases.add(database: database, as: .psql)
@@ -51,6 +55,9 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     migrations.add(model: AcronymCategoryPivot.self, database: .psql)
     services.register(migrations)
     
+    var commandConfig = CommandConfig.default()
+    commandConfig.use(RevertCommand.self, as: "revert")
+    services.register(commandConfig)
     
 //    // Configure a SQLite database
 //    let sqlite = try SQLiteDatabase(storage: .memory)
