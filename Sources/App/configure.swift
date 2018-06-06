@@ -17,6 +17,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     var middlewares = MiddlewareConfig() // Create _empty_ middleware config
     /// middlewares.use(FileMiddleware.self) // Serves files from `Public/` directory
     middlewares.use(ErrorMiddleware.self) // Catches errors and converts to HTTP response
+    middlewares.use(FileMiddleware.self)
     services.register(middlewares)
     
     
@@ -60,7 +61,9 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     commandConfig.use(RevertCommand.self, as: "revert")
     services.register(commandConfig)
 
+    ///leaf
     try services.register(LeafProvider())
     config.prefer(LeafRenderer.self, for: ViewRenderer.self)
 
+    
 }
