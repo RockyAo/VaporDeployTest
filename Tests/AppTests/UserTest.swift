@@ -78,7 +78,7 @@ final class UserTest: XCTestCase {
         XCTAssertEqual(receivedUser.id, user.id)
     }
     
-    func testGettingAUsersAcronymsFromTheAPI() {
+    func testGettingAUsersAcronymsFromTheAPI() throws {
         
         let user = try User.create(on: conn)
         
