@@ -53,12 +53,13 @@ extension User: Migration {
 extension User: Parameter {}
 
 extension User {
-    var acronyms: Children<User, Acronym> {
-        return children(\.userID)
-    }
-    
+  
     func converToPublic() -> User.Public {
         return User.Public(id: id, name: name, userName: userName)
+    }
+    
+    var acronyms: Children<User, Acronym> {
+        return children(\.userID)
     }
 }
 
@@ -73,6 +74,8 @@ extension User: TokenAuthenticatable {
     typealias TokenType = Token
 }
 
+extension User: PasswordAuthenticatable {}
+extension User: SessionAuthenticatable {}
 
 extension Future where T: User {
     
